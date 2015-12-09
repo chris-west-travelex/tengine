@@ -4855,7 +4855,7 @@ ngx_http_upstream_copy_allow_ranges(ngx_http_request_t *r,
 {
     ngx_table_elt_t  *ho;
 
-    if (r->upstream->conf->force_ranges) {
+    if (r->upstream->conf && r->upstream->conf->force_ranges) {
         return NGX_OK;
     }
 
