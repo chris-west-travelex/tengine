@@ -67,9 +67,10 @@ static ngx_cache_manager_ctx_t  ngx_cache_loader_ctx = {
 };
 
 
-static ngx_cycle_t        ngx_exit_cycle;
-static ngx_log_t          ngx_exit_log;
-static ngx_open_file_t    ngx_exit_log_file;
+static ngx_cycle_t      ngx_exit_cycle;
+static ngx_log_t        ngx_exit_log;
+static ngx_open_file_t  ngx_exit_log_file;
+
 
 void
 ngx_master_process_cycle(ngx_cycle_t *cycle)
@@ -758,6 +759,63 @@ ngx_master_process_exit(ngx_cycle_t *cycle)
 }
 
 
+#if (NGX_FORCE_EXIT)
+typedef struct {
+    time_t         tm;
+    ngx_event_t    ev;
+    ngx_cycle_t   *cycle;
+} ngx_force_exit_timer_ctx;
+
+
+static void
+ngx_force_exit_timer_handler(ngx_event_t *ev)
+{
+    ngx_force_exit_timer_ctx  *ctx;
+
+    ctx = (ngx_force_exit_timer_ctx *) ev->data;
+    ctx->tm -= 1000;
+
+    if (ngx_event_timer_rbtree.root == ngx_event_timer_rbtree.sentinel
+        || ctx->tm <= 0)
+    {
+        ngx_log_error(NGX_LOG_NOTICE, ev->log, 0, "force exit");
+        ngx_exiting = 0;    /* disable ngx_debug_quit */
+        ngx_worker_process_exit(ctx->cycle);
+        return;
+    }
+
+    ngx_add_timer(ev, 1000);
+}
+
+
+static void
+ngx_add_force_exit_timer(ngx_cycle_t *cycle)
+{
+    ngx_core_conf_t           *ccf;
+    ngx_force_exit_timer_ctx  *ctx;
+
+    ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+    if (ccf->force_exit_time == 0) {
+        return;
+    }
+
+    ctx = ngx_pcalloc(cycle->pool, sizeof(ngx_force_exit_timer_ctx));
+    if (ctx == NULL) {
+        return;
+    }
+
+    ctx->tm = ccf->force_exit_time;
+    ctx->cycle = cycle;
+
+    ctx->ev.handler = ngx_force_exit_timer_handler;
+    ctx->ev.log = cycle->log;
+    ctx->ev.data = ctx;
+
+    ngx_add_timer(&ctx->ev, ngx_min(ctx->tm, 1000));
+}
+#endif
+
+
 static void
 ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 {
@@ -818,6 +876,10 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
             if (!ngx_exiting) {
                 ngx_close_listening_sockets(cycle);
                 ngx_exiting = 1;
+
+#if (NGX_FORCE_EXIT)
+                ngx_add_force_exit_timer(cycle);
+#endif
             }
         }
 
@@ -1071,7 +1133,7 @@ ngx_worker_process_exit(ngx_cycle_t *cycle)
 
     ngx_exit_log = *ngx_log_get_file_log(ngx_cycle->log);
 
-    ngx_exit_log_file.fd = ngx_cycle->log->file->fd;
+    ngx_exit_log_file.fd = ngx_exit_log.file->fd;
     ngx_exit_log.file = &ngx_exit_log_file;
     ngx_exit_log.next = NULL;
     ngx_exit_log.writer = NULL;

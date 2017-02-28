@@ -162,7 +162,6 @@ NGX_DSO_ABI_ALL_TAG="
     with-http
     with-http-cache
     with-ipv6
-    with-syslog
     with-http-gzip
     with-http-gzip-static
     with-http-ssi
@@ -182,7 +181,6 @@ NGX_DSO_DEBUG_TAG=0x00000001
 NGX_DSO_HTTP_TAG=0x00000002
 NGX_DSO_CACHE_TAG=0x00000004
 NGX_DSO_IPV6_TAG=0x00000008
-NGX_DSO_SYSLOG_TAG=0x00000010
 NGX_DSO_GZIP_TAG=0x00000020
 NGX_DSO_GZIP_STATIC_TAG=0x00000040
 NGX_DSO_SSI_TAG=0x00000080
@@ -375,7 +373,7 @@ JEMALLOC=NONE
 
 NGX_CPU_CACHE_LINE=
 
-NGX_SYSLOG=YES
+NGX_FORCE_EXIT=NO
 
 NGX_POST_CONF_MSG=
 
@@ -425,18 +423,15 @@ do
         --without-poll_module)                     EVENT_POLL=NONE            ;;
         --with-aio_module)                         EVENT_AIO=YES              ;;
 
-        #--with-threads)                            USE_THREADS=YES            ;;
-        #--with-threads=*)                          USE_THREADS="$value"       ;;
-        #--with-threads)                            USE_THREADS="pthreads"     ;;
+        --with-threads)                            USE_THREADS=YES            ;;
 
         # PROCS
-        --without-procs)                            PROCS=NO                   ;;
+        --without-procs)                           PROCS=NO                   ;;
 
         --with-file-aio)                           NGX_FILE_AIO=YES           ;;
         --with-ipv6)                               NGX_IPV6=YES               ;;
 
-        --with-syslog)                             NGX_SYSLOG=YES              ;;
-        --without-syslog)                          NGX_SYSLOG=NO              ;;
+        --with-force-exit)                         NGX_FORCE_EXIT=YES         ;;
 
         --without-dso)                             NGX_DSO=NO                 ;;
 
@@ -770,10 +765,11 @@ cat << END
 
   --without-procs                    disable procs module
 
+  --with-threads                     enable thread pool support
+
   --with-file-aio                    enable file AIO support
   --with-ipv6                        enable IPv6 support
-
-  --without-syslog                   disable syslog logging
+  --with-force-exit                  enable force_exit support
 
   --without-dso                      disable dso module load
 

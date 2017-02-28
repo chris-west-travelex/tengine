@@ -2833,14 +2833,6 @@ ngx_http_named_location(ngx_http_request_t *r, ngx_str_t *name)
         return NGX_DONE;
     }
 
-    if (r->uri.len == 0) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "empty URI in redirect to named location \"%V\"", name);
-
-        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-        return NGX_DONE;
-    }
-
     cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
 
     if (cscf->named_locations) {
@@ -4340,14 +4332,20 @@ ngx_http_core_listen(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 #endif
 
 #if (NGX_HAVE_REUSEPORT)
+    {
     ngx_event_conf_t    *ecf;
 
-    ecf = ngx_event_get_conf(cf->cycle->conf_ctx, ngx_event_core_module);
+    if (ngx_get_conf(cf->cycle->conf_ctx, ngx_events_module)) {
 
-    if (ecf && ecf->reuse_port == 1) {
-        lsopt.reuseport = 1;
-        lsopt.set = 1;
-        lsopt.bind = 1;
+        ecf = ngx_event_get_conf(cf->cycle->conf_ctx, ngx_event_core_module);
+
+        if (ecf && ecf->reuse_port == 1) {
+
+            /* set cmcf->ports[].addrs[].lsopt.reuseport */
+
+            lsopt.reuseport = 1;
+        }
+    }
     }
 #endif
 
@@ -5319,7 +5317,8 @@ ngx_http_core_try_files(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         tf[i].name = value[i + 1];
 
         if (tf[i].name.len > 0
-            && tf[i].name.data[tf[i].name.len - 1] == '/')
+            && tf[i].name.data[tf[i].name.len - 1] == '/'
+            && i + 2 < cf->args->nelts)
         {
             tf[i].test_dir = 1;
             tf[i].name.len--;

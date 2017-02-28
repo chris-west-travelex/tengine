@@ -469,6 +469,28 @@ END
            exit 1
         fi
     fi
+else
+
+    ngx_feature="eventfd()"
+    ngx_feature_name="NGX_HAVE_EVENTFD"
+    ngx_feature_run=no
+    ngx_feature_incs="#include <sys/eventfd.h>"
+    ngx_feature_path=
+    ngx_feature_libs=
+    ngx_feature_test="(void) eventfd(0, 0)"
+    . auto/feature
+
+    if [ $ngx_found = yes ]; then
+        have=NGX_HAVE_SYS_EVENTFD_H . auto/have
+    fi
+
+    if [ $ngx_found = no ]; then
+
+        ngx_feature="eventfd() (SYS_eventfd)"
+        ngx_feature_incs="#include <sys/syscall.h>"
+        ngx_feature_test="int n = SYS_eventfd"
+        . auto/feature
+    fi
 fi
 
 
@@ -547,12 +569,6 @@ if [ $NGX_IPV6 = YES ]; then
     ngx_feature_test="struct sockaddr_in6  sin6;
                       sin6.sin6_family = AF_INET6;"
     . auto/feature
-fi
-
-
-if [ $NGX_SYSLOG = YES ]; then
-    CORE_DEPS="$CORE_DEPS $SYSLOG_DEPS"
-    CORE_SRCS="$CORE_SRCS $SYSLOG_SRCS"
 fi
 
 
